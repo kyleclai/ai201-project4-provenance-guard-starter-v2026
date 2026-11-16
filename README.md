@@ -206,25 +206,102 @@ Saved to `results/flood_2026-11-15_2326.md`.
 
 ---
 
-## Attack Run — Before
+## Attack Run: Before
 
-<!-- Every attack with its outcome and a held-or-broke mark.
-     `run_attacks.py --label before` produces the table. -->
+Run with nothing changed since the end of unit 7 except the rate limiter and the log: `python run_attacks.py --set attack_set --label before`. Full output: `results/attack_run_2026-11-15_2328_before.md`. **56 attacks: 22 BROKE, 34 HELD.**
 
+**How I marked held and broke.** The set says what each attack was going for, so I judged each against that goal, and I applied the same asymmetry as my criteria:
+- *Evasion and injection* (AI text, with or without an instruction attached): HELD only if the system said **ai**. Anything else (`human` or `unsure`) means AI text got past the check, so BROKE.
+- *False positives* (human writing): HELD if the system did **not** say `ai`. `unsure` is a safe landing. A confident `ai` label on a person's work is BROKE.
+- *Injection that targets the output* (hostile label, log injection): HELD if the output stayed clean.
+- *Malformed*: HELD if a 4xx JSON came back or the service gave a sensible answer. BROKE on a crash, or on a confident `ai`/`human` verdict on something that isn't prose.
+- *Flood*: HELD if the limiter returned 429 partway through.
 
+The score columns are the audit log's, joined to the run by `content_id`. The run report's own "Score" column is my `confidence` (distance from 0.5), not the combined score, so I did not use it.
 
-**Ten audit log entries from the run**
+| ID | Family | Status | Guess | model | style | combined | Verdict |
+|---|---|---|---|---|---|---|---|
+| EV01 | evasion | 200 | human | 0.164 | 0.589 | 0.334 | **BROKE** |
+| EV02 | evasion | 200 | unsure | 0.594 | 0.208 | 0.440 | **BROKE** |
+| EV03 | evasion | 200 | unsure | 0.666 | 0.277 | 0.510 | **BROKE** |
+| EV04 | evasion | 200 | unsure | 0.611 | 0.566 | 0.593 | **BROKE** |
+| EV05 | evasion | 200 | human | 0.321 | 0.190 | 0.269 | **BROKE** |
+| EV06 | evasion | 200 | unsure | 0.573 | 0.283 | 0.457 | **BROKE** |
+| EV07 | evasion | 200 | unsure | 0.586 | 0.303 | 0.473 | **BROKE** |
+| EV08 | evasion | 200 | unsure | 0.245 | 0.548 | 0.366 | **BROKE** |
+| EV09 | evasion | 200 | unsure | 0.704 | 0.361 | 0.567 | **BROKE** |
+| EV10 | evasion | 200 | ai | 0.979 | 0.719 | 0.875 | **HELD** |
+| FP01 | false_positive | 200 | unsure | 0.618 | 0.501 | 0.571 | **HELD** |
+| FP02 | false_positive | 200 | ai | 0.739 | 0.695 | 0.721 | **BROKE** |
+| FP03 | false_positive | 200 | ai | 0.805 | 0.586 | 0.718 | **BROKE** |
+| FP04 | false_positive | 200 | ai | 0.833 | 0.571 | 0.728 | **BROKE** |
+| FP05 | false_positive | 200 | ai | 0.800 | 0.769 | 0.788 | **BROKE** |
+| FP06 | false_positive | 200 | unsure | 0.881 | 0.496 | 0.690 | **HELD** |
+| FP07 | false_positive | 200 | unsure | 0.882 | 0.495 | 0.690 | **HELD** |
+| FP08 | false_positive | 200 | unsure | 0.322 | 0.441 | 0.370 | **HELD** |
+| PI01 | prompt_injection | 200 | unsure | 0.463 | 0.277 | 0.388 | **BROKE** |
+| PI02 | prompt_injection | 200 | human | 0.204 | 0.241 | 0.219 | **BROKE** |
+| PI03 | prompt_injection | 200 | unsure | 0.594 | 0.424 | 0.526 | **BROKE** |
+| PI04 | prompt_injection | 200 | unsure | 0.500 | 0.389 | 0.456 | **HELD** |
+| PI05 | prompt_injection | 200 | unsure | 0.640 | 0.163 | 0.449 | **HELD** |
+| PI06 | prompt_injection | 200 | unsure | 0.558 | 0.506 | 0.537 | **HELD** |
+| MF01 | malformed | 400 | — | — | — | — | **HELD** |
+| MF02 | malformed | 500 | — | — | — | — | **BROKE** |
+| MF03 | malformed | 200 | human | 0.000 | 0.500 | 0.200 | **BROKE** |
+| MF04 | malformed | 200 | human | 0.011 | 0.500 | 0.207 | **BROKE** |
+| MF05 | malformed | 200 | ai | 0.998 | 0.500 | 0.799 | **BROKE** |
+| MF06 | malformed | 200 | ai | 0.997 | 0.500 | 0.798 | **BROKE** |
+| MF07 | malformed | 200 | ai | 0.906 | 0.500 | 0.744 | **BROKE** |
+| MF08 | malformed | 413 | — | — | — | — | **HELD** |
+| RQ01 | malformed | 400 | — | — | — | — | **HELD** |
+| RQ02 | malformed | 400 | — | — | — | — | **HELD** |
+| RQ03 | malformed | 400 | — | — | — | — | **HELD** |
+| RQ04 | malformed | 400 | — | — | — | — | **HELD** |
+| RQ05 | malformed | 400 | — | — | — | — | **HELD** |
+| RQ06 | malformed | 400 | — | — | — | — | **HELD** |
+| RQ07 | malformed | 400 | — | — | — | — | **HELD** |
+| RQ08 | malformed | 400 | — | — | — | — | **HELD** |
+| RQ09 | malformed | 400 | — | — | — | — | **HELD** |
+| RQ10 | malformed | 400 | — | — | — | — | **HELD** |
+| RQ11 | malformed | 429 | — | — | — | — | **HELD** |
+| RQ12 | malformed | 400 | — | — | — | — | **HELD** |
+| FL01_01 | flood_same_creator | 200 | human | — | — | — | **HELD** |
+| FL01_02 | flood_same_creator | 200 | human | — | — | — | **HELD** |
+| FL01_03 | flood_same_creator | 200 | human | — | — | — | **HELD** |
+| FL01_04 | flood_same_creator | 200 | human | — | — | — | **HELD** |
+| FL01_05 | flood_same_creator | 200 | human | — | — | — | **HELD** |
+| FL01_06 | flood_same_creator | 200 | human | — | — | — | **HELD** |
+| FL01_07 | flood_same_creator | 429 | — | — | — | — | **HELD** |
+| FL01_08 | flood_same_creator | 429 | — | — | — | — | **HELD** |
+| FL01_09 | flood_same_creator | 429 | — | — | — | — | **HELD** |
+| FL01_10 | flood_same_creator | 429 | — | — | — | — | **HELD** |
+| FL01_11 | flood_same_creator | 429 | — | — | — | — | **HELD** |
+| FL01_12 | flood_same_creator | 429 | — | — | — | — | **HELD** |
 
-<!-- Choose entries that show the interesting failures, not the ten easiest. -->
+(`—` in the score columns = no decision was made: a 4xx/5xx/429, or one of the flood rows, whose scores are in the log under creator `attacker_flood`.)
+
+**Count by family:** evasion 1 held / 9 broke · false_positive 4 / 4 · prompt_injection 3 / 3 · malformed (MF) 2 / 6 · malformed requests (RQ) 12 / 0 · flood 12 / 0.
+
+Two notes on the held count. RQ11 came back 429 because earlier malformed rows with no `creator_id` all count against my own address; that request never reached my route, so "held" there means the limiter held, not my validation. And flood rows FL01_01 to FL01_06 returned 200 and FL01_07 to FL01_12 returned 429, so the limiter cut in at the 7th request as set (6/min).
+
+**Ten audit log entries from the run** (`GET /log`, labels shortened to fit):
 
 ```json
-
+{"combined_score": 0.7176, "content_id": "980331cd-ed02-4ea1-8bda-176209ce9b02", "creator_id": "attacker_FP03", "guess": "ai", "label": "Our checks suggest this may have been wr…", "model_score": 0.8051, "status": "decided", "style_score": 0.5864, "timestamp": "2026-11-16T07:28:46+00:00"}
+{"combined_score": 0.7879, "content_id": "7dd9a5cd-15cd-4f73-b8a3-1782fbe205e8", "creator_id": "attacker_FP05", "guess": "ai", "label": "Our checks suggest this may have been wr…", "model_score": 0.8005, "status": "decided", "style_score": 0.7689, "timestamp": "2026-11-16T07:28:46+00:00"}
+{"combined_score": 0.7438, "content_id": "107d6907-5094-48b1-8dc0-6dba84c4c426", "creator_id": "attacker_MF07", "guess": "ai", "label": "Our checks suggest this may have been wr…", "model_score": 0.9064, "status": "decided", "style_score": 0.5, "timestamp": "2026-11-16T07:28:47+00:00"}
+{"combined_score": 0.2192, "content_id": "29755cf0-c878-4952-bd83-2214c64bb6f4", "creator_id": "attacker_PI02", "guess": "human", "label": "We think this was probably written by a …", "model_score": 0.2044, "status": "decided", "style_score": 0.2413, "timestamp": "2026-11-16T07:28:46+00:00"}
+{"combined_score": 0.3337, "content_id": "2f0fa380-2eb2-4ea1-a52a-9f0e25e8d528", "creator_id": "attacker_EV01", "guess": "human", "label": "We think this was probably written by a …", "model_score": 0.1635, "status": "decided", "style_score": 0.5889, "timestamp": "2026-11-16T07:28:45+00:00"}
+{"combined_score": 0.2688, "content_id": "2fe95dd9-45f8-4431-bc00-0af1987b1ee1", "creator_id": "attacker_EV05", "guess": "human", "label": "We think this was probably written by a …", "model_score": 0.3212, "status": "decided", "style_score": 0.1901, "timestamp": "2026-11-16T07:28:45+00:00"}
+{"combined_score": 0.2, "content_id": "b4f4004c-b592-442f-848f-e4c95a9b86b2", "creator_id": "attacker_MF03", "guess": "human", "label": "We think this was probably written by a …", "model_score": 0.0, "status": "decided", "style_score": 0.5, "timestamp": "2026-11-16T07:28:47+00:00"}
+{"combined_score": 0.4494, "content_id": "7b37d462-029d-4666-96a1-f3c99d027993", "creator_id": "attacker_PI05", "guess": "unsure", "label": "We can't tell how this was written. Our …", "model_score": 0.6401, "status": "decided", "style_score": 0.1633, "timestamp": "2026-11-16T07:28:46+00:00"}
+{"creator_id": "attacker_flood", "event": "rejected", "limit": "6 per 1 minute", "reason": "rate_limited", "status": "rejected", "timestamp": "2026-11-16T07:28:48+00:00"}
+{"creator_id": "attacker_RQ05", "event": "rejected", "reason": "missing_text", "status": "rejected", "timestamp": "2026-11-16T07:28:47+00:00"}
 ```
 
-**The single worst outcome** — the one I'd least want to explain to a writer
-whose work got caught by it:
+**What the log does not show.** MF02 (a one-character text) returned a 500 and left **no entry at all**: the route crashed in `detector.py` ("Text is too short to score") before it reached `audit.log_decision`, and nothing catches the error. That is a crash and a gap in my log in one.
 
-
+**The single worst outcome:** FP03, "a non-native English speaker writing carefully". A person describing their first month in a new country, in simple, careful sentences, was told "Our checks suggest this may have been written with an AI tool" (combined 0.718, model 0.805, style 0.586). It is the false accusation my criterion 1 exists to prevent, and it lands on someone who may already feel scrutinised for how they write. FP05 (technical documentation, 0.788) was scored even higher, but FP03 is the one I would least want to explain to the writer. (Diagnosis is in the next sections.)
 
 ---
 

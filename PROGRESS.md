@@ -37,7 +37,7 @@ Running log of the build. Updated as each step completes.
 ## Checklist
 
 - [x] M1: rate limit on (6/min, 100/day), flood test, audit log has 9 fields + rejections
-- [ ] M2: run the attack set (before), mark held/broke, 10 log entries, worst outcome
+- [x] M2: run the attack set (before), mark held/broke, 10 log entries, worst outcome
 - [ ] M3: scenarios.py + `run_eval.py --label before` (5 criteria x 3 trials)
 - [ ] M4: verdicts + stage/mechanism diagnoses
 - [ ] M5: ONE improvement, re-run attacks + eval (`--label after`)
@@ -48,3 +48,4 @@ Running log of the build. Updated as each step completes.
 - 2026-11-15 — Attack set is not in the repo yet; deliberately not looking for it until M2.
 - 2026-11-15 — M1: enabled limiting in `config.py` (default on), 6/min + 100/day, uncommented `@limiter.limit` on `/submit`.
 - 2026-11-15 — M1 verified: `--flood 15` gave `200 x6, 429 x9`; `/health` shows `rate_limiting: true`; rejections logged with reason + limit. README Rate Limiting section written. Decision entries already carry all nine fields; own-route 400s were already logged via `audit.log_rejection` in unit 7.
+- 2026-11-15 — M2: attack set unpacked at `attack_set/`; ran it BEFORE any fix (`--label before`). 56 attacks: 22 BROKE / 34 HELD. Biggest clusters: evasion 9/10 not flagged, 4/8 false positives called AI (FP02-05), MF02 single char = 500 crash with no log entry, junk text (MF03-07) given confident verdicts. Worst outcome: FP03 (non-native speaker, 0.718 'ai'). Verdicts written into the results file; 10 log entries + definitions of held/broke in README. Diagnosis deferred to M4.
