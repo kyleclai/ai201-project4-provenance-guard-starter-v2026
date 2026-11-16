@@ -29,3 +29,22 @@ Running log of the build. Updated as each step completes.
 - Push to your fork and submit the fork URL.
 - 2026-11-15 — Added local-only `REFLECTION_NOTES.md` (my criteria options and picks), gitignored.
 - 2026-11-15 — You reviewed the criteria (kept as written) and added notes from a group discussion on requirements and AI-engineering roles; both are in the README's How I Used AI. Pushing to fork.
+
+---
+
+# Unit 8 — Testing
+
+## Checklist
+
+- [x] M1: rate limit on (6/min, 100/day), flood test, audit log has 9 fields + rejections
+- [ ] M2: run the attack set (before), mark held/broke, 10 log entries, worst outcome
+- [ ] M3: scenarios.py + `run_eval.py --label before` (5 criteria x 3 trials)
+- [ ] M4: verdicts + stage/mechanism diagnoses
+- [ ] M5: ONE improvement, re-run attacks + eval (`--label after`)
+- [ ] M6: README sections (Rate Limiting, Attack Before, Run Log, Improvement, Still Broken), How I Used AI, push
+
+## Updates
+
+- 2026-11-15 — Attack set is not in the repo yet; deliberately not looking for it until M2.
+- 2026-11-15 — M1: enabled limiting in `config.py` (default on), 6/min + 100/day, uncommented `@limiter.limit` on `/submit`.
+- 2026-11-15 — M1 verified: `--flood 15` gave `200 x6, 429 x9`; `/health` shows `rate_limiting: true`; rejections logged with reason + limit. README Rate Limiting section written. Decision entries already carry all nine fields; own-route 400s were already logged via `audit.log_rejection` in unit 7.

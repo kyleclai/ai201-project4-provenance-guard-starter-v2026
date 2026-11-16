@@ -181,25 +181,28 @@ Separately from Claude Code, I talked this unit over with my group in a side cha
 
 ## Rate Limiting
 
-**My limits:** ___ per minute, ___ per day
+**My limits:** 6 per minute, 100 per day, on `POST /submit` (`config.py`, applied in `app.py`).
 
-**Why those numbers and not others:**
-<!-- Think about two people: a real writer submitting their own work a few
-     times an hour, and a script sending a thousand variations to map your
-     thresholds. Your numbers have to be liveable for the first and hostile to
-     the second. -->
+**Why those numbers and not others:** a real writer submits a piece, reads the label, maybe edits and resubmits a few times. Each submission takes a second or two to score, so even a fast revising session rarely passes 6 a minute, and 100 a day is far more than anyone submits by hand. A script mapping my thresholds needs hundreds of probes. At 6 a minute it gets about 360 an hour from one creator, and at 100 a day it is stopped for the rest of the day. The starter's 10/200 was more generous than I needed. I did not go lower because a tight limit would lock out a writer who hits "submit" a few times in a row after a typo.
 
-**What a caller counts as:** <!-- per address, or per creator_id? They fail
-differently — one script can look like a thousand callers, and one household
-can look like one. -->
+**What a caller counts as:** the `creator_id` when the request has one, otherwise the caller's address (the starter's `rate_limit_key`). This is the default key function. A script can get around it by sending a new `creator_id` each time, which the attack set's one-creator-per-row design makes visible.
 
 **The run of status codes when I pushed past it:**
 
-<!-- python run_attacks.py --flood 15 -->
+```
+$ python run_attacks.py --flood 15
+200 200 200 200 200 200 429 429 429 429 429 429 429 429 429
 
+9 of 15 were rate limited.
 ```
 
+The rejections are logged (`GET /log`):
+
+```json
+{"creator_id":"flood_tester","event":"rejected","limit":"6 per 1 minute","reason":"rate_limited","status":"rejected","timestamp":"2026-11-16T07:26:53+00:00"}
 ```
+
+Saved to `results/flood_2026-11-15_2326.md`.
 
 ---
 
