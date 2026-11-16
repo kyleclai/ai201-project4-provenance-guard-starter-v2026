@@ -156,17 +156,19 @@ Bad input (missing text, empty, whitespace, non-string, missing creator_id, non-
 
 ## How I Used AI
 
-**Moment 1**
+I used Claude Code for most of the build. I pasted in the whole unit brief and asked it to do the work and keep a progress file as it went. The two moments below are the ones where what it gave me changed what I decided, not just what I typed.
 
-- *What I asked for:* Claude Code to build the whole unit and keep a progress file. Before it wrote `criteria.md` it stopped and asked me to choose the targets (false positives, spread, appeals, bad input), because the assignment says the criteria must be mine.
-- *What came back:* a draft of `criteria.md` built from my four answers, written and committed before any results existed.
-- *What I changed:* <!-- EDIT THIS: say what you actually changed in the wording or reasons -->
+**Moment 1: the acceptance criteria**
 
-**Moment 2**
+- *What I asked for:* I asked Claude Code to complete the unit, which includes writing `criteria.md`. The brief says the five criteria must be mine and that I shouldn't ask a model to write them. Claude Code noticed that and, instead of drafting criteria, stopped and asked me to choose the targets myself, with a few options for each.
+- *What came back:* four multiple-choice questions: how many of 10 of my own pieces may be labeled AI (0, 1 or 2), how far apart the average scores of clearly-AI and clearly-human text must be (0.30, 0.40 or 0.50), what the service must do on bad input, and what I wanted for appeals and label coverage. Once I answered, it wrote `criteria.md` from those answers and committed it before any code existed, so the history shows the criteria came first. The options I was offered are saved in my local reflection notes.
+- *What I changed:* I picked the numbers. I took the strictest option on false positives (0 of 10) because I think a wrong accusation costs a real writer more than a missed AI text costs the site. I took the modest spread (0.30) because I don't expect two simple signals to separate text by much. I chose "4xx JSON, no 500s, logged" for bad input because a rejection that leaves no trace is an attack I'd never see. The sentences and the "why this target" reasons were drafted by Claude Code from my answers. <!-- EDIT THIS: add what you changed or checked in the wording, or say you left it as is -->
 
-- *What I asked for:* the style signal and combining rule.
-- *What came back:* a three-measure style signal and a weighted average with an "AI needs both signals" cap. The first calibration run flagged a plain human paragraph as AI (0.78).
-- *What I changed:* nothing in the thresholds or criteria; I recorded the false positive as a finding instead of tuning to two samples.
+**Moment 2: the style signal and what the first test showed**
+
+- *What I asked for:* the second signal in `stylometry.py` and the combining rule in `scoring.py`, with the rule written down before it was coded.
+- *What came back:* a style signal built from sentence-length spread, windowed vocabulary variety and punctuation, and a weighted average (0.6 model, 0.4 style) with a cap so an AI verdict needs both signals to lean AI. I then ran five inputs through both signals together. The result was uncomfortable. A plain, ordinary paragraph that I would call human scored 0.78 and was labeled AI, because both signals read plain writing as machine-like, so the cap couldn't help. A lightly edited AI text scored 0.35 and was labeled human.
+- *What I changed:* I didn't tune the thresholds or soften my 0-of-10 target to make that paragraph pass. With two samples I'd only be fitting the test, and the criteria are meant to be set before the results. I recorded both failures in the README as findings, and left the false positive as the first thing to diagnose in unit 8. The one change I did make was a design choice: I raised the AI threshold from the starter's 0.65 to 0.70, to lean toward fewer wrong accusations.
 
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
