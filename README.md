@@ -36,99 +36,95 @@
 
 ## What This Does
 
-<!-- The path a submission takes, from arriving to the label a reader sees.
-     Six or seven steps — this is the trace you wrote in Milestone 1. -->
+A submission takes seven steps (the full trace is in [DESIGN.md](DESIGN.md)):
 
+1. `POST /submit` (`app.py::submit`) validates `text` and `creator_id`. Bad input gets a 4xx JSON error and a `rejected` log entry.
+2. A `content_id` (uuid) is minted. The appeal endpoint needs it.
+3. Signal one (`detector.py::model_signal`) runs GPT-2 locally and returns `model_score`.
+4. Signal two (`stylometry.py::style_signal`) measures the shape of the text and returns `style_score`.
+5. `scoring.py::combine_signals` merges them into `combined_score`.
+6. `scoring.py::score_to_label` maps the score to `ai` / `human` / `unsure` plus a plain-English label. `confidence` = `|combined - 0.5| * 2`.
+7. `audit.py::log_decision` writes all three scores, guess, label and status to `logs/audit.jsonl`, and the JSON goes back to the caller.
 
+`POST /appeal` checks the `content_id` exists (404 if not), appends an `appeal` entry with the writer's reasoning (status `under_review`) next to the original decision, and confirms.
 
 ---
 
 ## Signals and Scoring
 
-<!-- For each signal: what property it measures, why that might differ between
-     human and AI writing, and WHAT IT CAN'T SEE.
+### Signal one: the model signal
 
-     The blind spot is not optional. If you can't name it you don't understand
-     the signal yet — and unit 8's attack set is built out of blind spots. -->
+**What it measures:** perplexity under GPT-2 (run locally), i.e. how predictable the text is, mapped to 0-1 (higher = more AI-like).
 
-### Signal one — the model signal
+**Why that might differ between human and AI writing:** generated text is the likely continuation, so a language model finds it easy to predict. People are less predictable.
 
-**What it measures:**
+**What it can't see:** meaning, facts, or who wrote it. Plain, conventional human writing is also predictable and reads as AI (see the false positive in my calibration run below). Light editing of AI text can push it toward "human". GPT-2 is small and old, and short texts give noisy readings.
 
-**Why that might differ between human and AI writing:**
+### Signal two: the style signal
 
-**What it can't see:**
+**What it measures:** three things, each turned into 0-1 "AI-likeness": sentence-length spread (stdev / mean, weight 0.5), vocabulary variety (50-word moving-window type-token ratio, weight 0.25) and punctuation (rate of commas, semicolons, dashes, quotes, ! and ?, plus variety of marks, weight 0.25).
 
-### Signal two — the style signal
+**Why that might differ between human and AI writing:** generated prose tends toward even, mid-length sentences and a narrower vocabulary. Human writing is lumpier.
 
-**What it measures:**
-
-**Why that might differ between human and AI writing:**
-
-**What it can't see:**
+**What it can't see:** meaning, entirely. Anything that changes the shape but not the substance moves it: typos, chopped sentences, pasted quotes. A human who writes in short even sentences looks AI-like. One-sentence or very short texts return a neutral 0.5 for the parts it can't measure.
 
 ### The combining rule
 
-<!-- Write the rule in words, then give the numbers. What happens when the two
-     signals disagree? -->
+**The rule:** weighted average of the two signals, with one safeguard: an AI verdict needs both signals to lean AI. If either signal is below 0.5, the combined score is capped just under the AI threshold (0.69), so a disagreement can land in "unsure" but never "ai".
 
-**The rule:**
-
-**The numbers:**
+**The numbers:** model weight 0.6, style weight 0.4, human threshold 0.35, AI threshold 0.70 (all in `config.py`). I weight the model signal higher because it was the more discriminating one in calibration. I put the AI threshold above the 0.65 starter value and added the cap because a wrong accusation costs a writer more than a missed detection costs the site.
 
 **Where it lives:** `scoring.py::combine_signals`
 
-<!-- ⚠️ The grader checks your code against that line. If your rule lives
-     somewhere else, say where. -->
+**A case where my two signals split, and what my rule does with it:** a lightly edited AI text ("Remote work has changed how teams collab, no doubt... honestly. Its not perfect...") scored model 0.247 / style 0.500. The average (0.348) lands in "human" and the cap doesn't matter, so the AI text got through. The cap protects against the opposite split. This is the missed-detection side of the trade I chose.
 
-**A case where my two signals split, and what my rule does with it:**
+**Calibration run (both signals, one table):**
 
+| Input | model | style | combined | guess |
+|---|---|---|---|---|
+| clearly AI | 0.854 | 0.744 | 0.810 | ai |
+| clearly human (chatty, varied) | 0.469 | 0.106 | 0.324 | human |
+| plain conventional human | 0.818 | 0.726 | 0.781 | **ai (false positive)** |
+| lightly edited AI | 0.247 | 0.500 | 0.348 | human (missed) |
+| borderline committee minutes | 0.475 | 0.589 | 0.520 | unsure |
 
+The plain-human row is the failure my criterion 1 (0 of 10) is aimed at. Both signals read plain writing as AI, so the cap doesn't help. I have not changed the thresholds or the criterion to hide it; this is a finding to diagnose in unit 8.
 
 ---
 
 ## Label Variants
 
-<!-- The exact text of all three labels, as a reader would see them, and the
-     score range each covers.
-
-     Write them for someone who has never heard the word "threshold". -->
-
 | Label | Score range | The exact text a reader sees |
 |---|---|---|
-| high-confidence human |  |  |
-| unsure |  |  |
-| high-confidence AI |  |  |
+| high-confidence human | 0.00 - 0.35 | We think this was probably written by a person. Our checks found nothing that suggests otherwise. |
+| unsure | 0.35 - 0.70 | We can't tell how this was written. Our checks didn't point clearly either way, and that happens with plenty of writing by real people. No conclusion has been drawn about this piece. |
+| high-confidence AI | 0.70 - 1.00 | Our checks suggest this may have been written with an AI tool. We can get this wrong. If you wrote it yourself, you can appeal and a person will take a look. |
 
-**Why I worded the "unsure" one this way:**
-<!-- It's the hardest of the three. It has to admit uncertainty without
-     sounding like an accusation, because the person reading it may well have
-     written every word themselves. -->
+**Why I worded the "unsure" one this way:** it says plainly that nothing was concluded and that real people land here often, so it doesn't read as an accusation. The AI label says "suggest" and "may", admits the system can be wrong, and tells the writer what to do next.
 
-
+All three are reachable: the Sample Run submissions below produced all three.
 
 ---
 
 ## Sample Run
 
-<!-- One submission and one appeal, pasted as text: the request, the response,
-     and the log entries. -->
-
 **A submission**
-
-<!-- The response needs content_id, guess, confidence, label, AND both
-     signal scores - model_score and style_score. Unit 8's tools read those
-     two off the response, so leaving them out costs you next unit's
-     diagnostics. -->
 
 ```bash
 $ curl -X POST http://127.0.0.1:5000/submit \
   -H "Content-Type: application/json" \
-  -d '{"text": "...", "creator_id": "..."}'
+  -d '{"text": "I missed the bus again. Third time this week! My sister laughed at me over the phone, then told me about her dog eating a whole birthday cake (candles and all, apparently). Honestly? I walked the two miles in the drizzle and didnt mind. There is something about wet pavement and a bad mood that clears the head.", "creator_id": "writer-001"}'
 ```
 
 ```json
+{"combined_score":0.2765,"confidence":0.447,"content_id":"3b2ec0a4-0956-4704-b17e-4f740eecb63b","guess":"human","label":"We think this was probably written by a person. Our checks found nothing that suggests otherwise.","model_score":0.3998,"status":"decided","style_score":0.0915}
+```
 
+The other two labels, from the same run:
+
+```json
+{"combined_score":0.8097,"confidence":0.6194,"guess":"ai","model_score":0.8537,"style_score":0.7438,"status":"decided"}
+{"combined_score":0.5205,"confidence":0.041,"guess":"unsure","model_score":0.4751,"style_score":0.5886,"status":"decided"}
 ```
 
 **An appeal**
@@ -136,22 +132,25 @@ $ curl -X POST http://127.0.0.1:5000/submit \
 ```bash
 $ curl -X POST http://127.0.0.1:5000/appeal \
   -H "Content-Type: application/json" \
-  -d '{"content_id": "...", "reasoning": "..."}'
+  -d '{"content_id": "3b2ec0a4-0956-4704-b17e-4f740eecb63b", "reasoning": "I wrote this myself on the walk home."}'
 ```
 
 ```json
-
+{"content_id":"3b2ec0a4-0956-4704-b17e-4f740eecb63b","message":"Thank you. Your appeal has been recorded and this piece is now under review.","status":"under_review"}
 ```
 
-**What the log shows afterwards**
+An unknown id returns `{"error":"unknown_content_id","message":"No submission with that content_id."}` with status 404.
 
-```bash
-$ curl "http://127.0.0.1:5000/log?limit=3"
-```
+**What the log shows afterwards** (entries for that content_id from `GET /log`):
 
 ```json
-
+[
+  {"combined_score": 0.2765, "content_id": "3b2ec0a4-0956-4704-b17e-4f740eecb63b", "creator_id": "writer-001", "guess": "human", "label": "We think this was probably written by a person. Our checks found nothing that suggests otherwise.", "model_score": 0.3998, "status": "decided", "style_score": 0.0915, "timestamp": "2026-11-16T06:56:10+00:00"},
+  {"content_id": "3b2ec0a4-0956-4704-b17e-4f740eecb63b", "creator_id": "writer-001", "event": "appeal", "reasoning": "I wrote this myself on the walk home.", "status": "under_review", "timestamp": "2026-11-16T06:56:10+00:00"}
+]
 ```
+
+Bad input (missing text, empty, whitespace, non-string, missing creator_id, non-JSON) returned 400 each, text over 50,000 characters returned 413, and `/ping` still answered afterwards. Each rejection is a `rejected` entry in the log.
 
 ---
 
@@ -159,15 +158,15 @@ $ curl "http://127.0.0.1:5000/log?limit=3"
 
 **Moment 1**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* Claude Code to build the whole unit and keep a progress file. Before it wrote `criteria.md` it stopped and asked me to choose the targets (false positives, spread, appeals, bad input), because the assignment says the criteria must be mine.
+- *What came back:* a draft of `criteria.md` built from my four answers, written and committed before any results existed.
+- *What I changed:* <!-- EDIT THIS: say what you actually changed in the wording or reasons -->
 
 **Moment 2**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* the style signal and combining rule.
+- *What came back:* a three-measure style signal and a weighted average with an "AI needs both signals" cap. The first calibration run flagged a plain human paragraph as AI (0.78).
+- *What I changed:* nothing in the thresholds or criteria; I recorded the false positive as a finding instead of tuning to two samples.
 
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 

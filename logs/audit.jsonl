@@ -1,0 +1,11 @@
+{"timestamp": "2026-11-16T06:56:10+00:00", "content_id": "3b2ec0a4-0956-4704-b17e-4f740eecb63b", "creator_id": "writer-001", "guess": "human", "model_score": 0.3998, "style_score": 0.0915, "combined_score": 0.2765, "label": "We think this was probably written by a person. Our checks found nothing that suggests otherwise.", "status": "decided"}
+{"timestamp": "2026-11-16T06:56:10+00:00", "content_id": "f8d66df1-857d-4139-a1e6-ea3cbbda7570", "creator_id": "writer-002", "guess": "ai", "model_score": 0.8537, "style_score": 0.7438, "combined_score": 0.8097, "label": "Our checks suggest this may have been written with an AI tool. We can get this wrong. If you wrote it yourself, you can appeal and a person will take a look.", "status": "decided"}
+{"timestamp": "2026-11-16T06:56:10+00:00", "content_id": "142ab612-0430-4032-b1b8-69317ca50d6f", "creator_id": "writer-003", "guess": "unsure", "model_score": 0.4751, "style_score": 0.5886, "combined_score": 0.5205, "label": "We can't tell how this was written. Our checks didn't point clearly either way, and that happens with plenty of writing by real people. No conclusion has been drawn about this piece.", "status": "decided"}
+{"timestamp": "2026-11-16T06:56:10+00:00", "content_id": "3b2ec0a4-0956-4704-b17e-4f740eecb63b", "creator_id": "writer-001", "event": "appeal", "status": "under_review", "reasoning": "I wrote this myself on the walk home."}
+{"timestamp": "2026-11-16T06:56:10+00:00", "creator_id": "a", "event": "rejected", "status": "rejected", "reason": "missing_text"}
+{"timestamp": "2026-11-16T06:56:10+00:00", "creator_id": "a", "event": "rejected", "status": "rejected", "reason": "empty_text"}
+{"timestamp": "2026-11-16T06:56:10+00:00", "creator_id": "a", "event": "rejected", "status": "rejected", "reason": "empty_text"}
+{"timestamp": "2026-11-16T06:56:11+00:00", "creator_id": "a", "event": "rejected", "status": "rejected", "reason": "invalid_text"}
+{"timestamp": "2026-11-16T06:56:11+00:00", "creator_id": "unknown", "event": "rejected", "status": "rejected", "reason": "missing_creator_id"}
+{"timestamp": "2026-11-16T06:56:11+00:00", "creator_id": "unknown", "event": "rejected", "status": "rejected", "reason": "invalid_json"}
+{"timestamp": "2026-11-16T06:56:11+00:00", "creator_id": "a", "event": "rejected", "status": "rejected", "reason": "text_too_long"}
