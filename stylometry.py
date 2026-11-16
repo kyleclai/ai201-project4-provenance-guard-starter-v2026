@@ -64,8 +64,12 @@ def sentence_length_spread(text: str) -> float:
     `stdev` raises on fewer than two values. Decide what that should return
     before the attack set decides for you.
     """
-    # TODO: replace this
-    return 0.0
+    lengths = [len(words(sent)) for sent in sentences(text)]
+    lengths = [n for n in lengths if n > 0]
+    if len(lengths) < 2:
+        return 0.0  # one sentence: no measurable spread
+    mean = statistics.mean(lengths)
+    return statistics.stdev(lengths) / mean if mean else 0.0
 
 
 def type_token_ratio(text: str) -> float:
@@ -80,8 +84,18 @@ def type_token_ratio(text: str) -> float:
     directly comparable on it, and if your test inputs vary a lot in length,
     that alone can look like a signal.
     """
-    # TODO: replace this
-    return 0.0
+    ws = words(text)
+    if not ws:
+        return 0.0
+    # Moving-window TTR (50 words) so long texts aren't penalised for repeats.
+    window = 50
+    if len(ws) <= window:
+        return len(set(ws)) / len(ws)
+    ratios = [
+        len(set(ws[i:i + window])) / window
+        for i in range(0, len(ws) - window + 1, 10)
+    ]
+    return statistics.mean(ratios)
 
 
 def punctuation_density(text: str) -> float:
@@ -94,8 +108,15 @@ def punctuation_density(text: str) -> float:
         more interesting than full stops, because they vary more between
         writers.
     """
-    # TODO: replace this
-    return 0.0
+    ws = words(text)
+    if not ws:
+        return 0.0
+    # Count only the "interesting" marks: commas, semicolons, colons, dashes,
+    # parentheses, quotes, ! and ?. Full stops vary far less between writers.
+    marks = re.findall(r"[,;:()\"!?\u2014\u2013-]", text)
+    kinds = len(set(marks))
+    # Rate per word, plus a bonus for variety of marks used.
+    return len(marks) / len(ws) + 0.02 * kinds
 
 
 # ── Combining them ───────────────────────────────────────────────────────────
@@ -122,8 +143,24 @@ def style_signal(text: str) -> float:
     you trust it. Plain and ordinary, not formal: formal prose reads as *human*
     to signal one, and it is plain writing that gets accused.
     """
-    # TODO: replace this
-    return 0.5
+    if len(words(text)) < 5:
+        return 0.5  # nothing to measure: say "no idea", not "human"
+
+    def clamp(x: float) -> float:
+        return max(0.0, min(1.0, x))
+
+    # Direction: every part is turned into "higher = more AI-like", 0–1.
+    #   spread: coefficient of variation ~0.25 (even, AI-ish) to ~0.7+ (lumpy, human)
+    spread = clamp(1.0 - sentence_length_spread(text) / 0.7)
+    if len(sentences(text)) < 2:
+        spread = 0.5  # a single sentence tells us nothing about spread
+    #   variety: windowed TTR ~0.6 (repetitive, AI-ish) to ~0.9 (varied, human)
+    variety = clamp((0.9 - type_token_ratio(text)) / 0.3)
+    #   punctuation: low rate/variety (~0.05) is AI-ish, rich (~0.25+) is human
+    punct = clamp(1.0 - (punctuation_density(text) - 0.05) / 0.20)
+
+    # Sentence spread is the strongest of the three; the other two are noisier.
+    return round(0.5 * spread + 0.25 * variety + 0.25 * punct, 4)
 
 
 if __name__ == "__main__":

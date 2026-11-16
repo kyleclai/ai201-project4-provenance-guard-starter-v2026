@@ -199,17 +199,62 @@ def submit():
     what should this do when `text` is missing, empty, or enormous? A crash on
     a malformed input is one of the most common real failures there is.
     """
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    creator_id = payload.get("creator_id") if isinstance(payload, dict) else None
 
-    # TODO: delete this and build the route.
+    def reject(status, code, message):
+        audit.log_rejection(
+            creator_id=creator_id if isinstance(creator_id, str) else "unknown",
+            reason=code,
+        )
+        return jsonify({"error": code, "message": message}), status
+
+    if not isinstance(payload, dict):
+        return reject(400, "invalid_json", "Send a JSON object with text and creator_id.")
+    text = payload.get("text")
+    if text is None:
+        return reject(400, "missing_text", "The 'text' field is required.")
+    if not isinstance(text, str):
+        return reject(400, "invalid_text", "'text' must be a string.")
+    if not text.strip():
+        return reject(400, "empty_text", "'text' must not be empty.")
+    if not isinstance(creator_id, str) or not creator_id.strip():
+        return reject(400, "missing_creator_id", "'creator_id' must be a non-empty string.")
+    if len(text) > config.MAX_TEXT_CHARS:
+        return reject(413, "text_too_long",
+                      f"'text' is over the {config.MAX_TEXT_CHARS}-character limit.")
+
+    import detector
+    import scoring
+    import stylometry
+
+    content_id = str(uuid.uuid4())
+    model_score = round(detector.model_signal(text), 4)
+    style_score = round(stylometry.style_signal(text), 4)
+    combined = scoring.combine_signals(model_score, style_score)
+    guess, label = scoring.score_to_label(combined)
+    confidence = round(abs(combined - 0.5) * 2, 4)  # 0 = coin flip, 1 = certain
+
+    audit.log_decision(
+        content_id=content_id,
+        creator_id=creator_id,
+        guess=guess,
+        model_score=model_score,
+        style_score=style_score,
+        combined_score=combined,
+        label=label,
+        status="decided",
+    )
     return jsonify({
-        "error": "not_implemented",
-        "message": "POST /submit isn't built yet — see the TODO in app.py.",
-        "you_sent": {
-            "text_length": len(payload.get("text", "")),
-            "creator_id": payload.get("creator_id"),
-        },
-    }), 501
+        "content_id": content_id,
+        "guess": guess,
+        "confidence": confidence,
+        "label": label,
+        "model_score": model_score,
+        "style_score": style_score,
+        "combined_score": combined,
+        "status": "decided",
+    })
 
 
 @app.post("/appeal")
@@ -232,14 +277,28 @@ def appeal():
     to the person on the other end. It's the only thing standing between a
     wrong accusation and nothing at all.
     """
-    payload = request.get_json(silent=True) or {}
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "invalid_json", "message": "Send a JSON object."}), 400
+    content_id = payload.get("content_id")
+    reasoning = payload.get("reasoning")
+    if not isinstance(content_id, str) or not content_id.strip():
+        return jsonify({"error": "missing_content_id", "message": "'content_id' is required."}), 400
+    if not isinstance(reasoning, str) or not reasoning.strip():
+        return jsonify({"error": "missing_reasoning", "message": "'reasoning' is required."}), 400
 
-    # TODO: delete this and build the route.
+    history = audit.entries_for(content_id)
+    original = next((e for e in history if e.get("event") is None), None)
+    if original is None:
+        return jsonify({"error": "unknown_content_id",
+                        "message": "No submission with that content_id."}), 404
+
+    audit.log_appeal(content_id, original.get("creator_id"), reasoning)
     return jsonify({
-        "error": "not_implemented",
-        "message": "POST /appeal isn't built yet — see the TODO in app.py.",
-        "you_sent": payload,
-    }), 501
+        "content_id": content_id,
+        "status": "under_review",
+        "message": "Thank you. Your appeal has been recorded and this piece is now under review.",
+    })
 
 
 # ── Already works ─────────────────────────────────────────────────────────────
