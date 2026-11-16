@@ -25,7 +25,7 @@ Running log of the build. Updated as each step completes.
 
 ## Still needs you
 
-- Review `criteria.md` wording and reasons; you must be able to defend each.
-- Edit "What I changed" under How I Used AI, Moment 1 (placeholder comment in README).
+- (done) Reviewed criteria; README Moment 1 and group-discussion note filled in.
 - Push to your fork and submit the fork URL.
 - 2026-11-15 — Added local-only `REFLECTION_NOTES.md` (my criteria options and picks), gitignored.
+- 2026-11-15 — You reviewed the criteria (kept as written) and added notes from a group discussion on requirements and AI-engineering roles; both are in the README's How I Used AI. Pushing to fork.
