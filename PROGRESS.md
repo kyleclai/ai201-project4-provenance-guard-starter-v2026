@@ -28,3 +28,4 @@ Running log of the build. Updated as each step completes.
 - Review `criteria.md` wording and reasons; you must be able to defend each.
 - Edit "What I changed" under How I Used AI, Moment 1 (placeholder comment in README).
 - Push to your fork and submit the fork URL.
+- 2026-11-15 — Added local-only `REFLECTION_NOTES.md` (my criteria options and picks), gitignored.
