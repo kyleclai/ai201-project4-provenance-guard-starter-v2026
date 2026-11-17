@@ -125,6 +125,7 @@ def main():
                         "confidence": payload.get("confidence"),
                         "model_score": payload.get("model_score"),
                         "style_score": payload.get("style_score"),
+                        "combined_score": payload.get("combined_score"),
                         "label": payload.get("label"),
                         "sent": preview,
                     })
@@ -183,6 +184,9 @@ def write_report(rows, args):
                       json.dumps(results, indent=2), "```", ""]
 
     path.write_text("\n".join(lines), encoding="utf-8")
+    path.with_suffix(".json").write_text(json.dumps(
+        [{"name": r["scenario"]["name"], "criterion": r["scenario"].get("criterion"),
+          "trials": r["trials"]} for r in rows], indent=1), encoding="utf-8")
     print(f"\nWrote {path.relative_to(config.ROOT)}")
     print("Commit it. It's the evidence the test actually happened.")
 
