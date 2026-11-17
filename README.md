@@ -307,40 +307,94 @@ Two notes on the held count. RQ11 came back 429 because earlier malformed rows w
 
 ## Run Log and Verdicts
 
-<!-- Your five criteria across three trials. `run_eval.py --label before`. -->
+`python run_eval.py --label before` then `python check_criteria.py --label before` (three trials each, nothing changed in between). Scenarios are in `scenarios.py`: ten pieces I wrote myself, five AI-written texts, five borderline texts (the last two sets written by Claude for this test, and the "clearly human" set for criterion 2 reuses five of my own pieces, so criteria 1 and 2 are not independent), and the bad-input bodies. Raw files: `results/run_2026-11-16_2106_before.md/.json`, `results/criteria_before.md`.
 
 | Criterion | Target | Run 1 | Run 2 | Run 3 | Verdict |
 |---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |
+| 1. My own writing flagged as AI | 0 of 10 | 0/10 | 0/10 | 0/10 | MET |
+| 2. Clearly-AI vs clearly-human mean gap | >= 0.30 | 0.483 | 0.483 | 0.483 | MET |
+| 3. All 3 labels reachable; borderline text lands in unsure | 3/3 labels and >= 3 of 5 unsure | 3/3, 4/5 | 3/3, 4/5 | 3/3, 4/5 | MET |
+| 4. Every valid appeal sets under_review and is logged | 10 of 10 | 10/10 | 10/10 | 10/10 | MET |
+| 5. Bad input never 500s, each rejection logged | 7 of 7 inputs, 0 x 500 | 7/7 | 7/7 | 7/7 | MET |
 
-**Real output from one trial**, pasted as text, naming the file and function
-that produced it:
+The three trials were identical to the last digit, which is what a deterministic pipeline should do (GPT-2 and the style measures have no randomness). So the repeats show the result is stable, not that it was a lucky pass.
+
+**Real output from trial 1** (`run_eval.py` / `check_criteria.py`, produced by `app.py::submit` and `app.py::appeal`):
+
+Criterion 1, ten of my pieces (labels omitted for length; `scoring.py::score_to_label` produced the guess):
 
 ```json
-
+[{"status":200,"guess":"unsure","confidence":0.0308,"model_score":0.72,"style_score":0.1315,"combined_score":0.4846},
+ {"status":200,"guess":"unsure","confidence":0.1018,"model_score":0.6521,"style_score":0.1446,"combined_score":0.4491},
+ {"status":200,"guess":"unsure","confidence":0.0086,"model_score":0.6908,"style_score":0.203,"combined_score":0.4957},
+ {"status":200,"guess":"human","confidence":0.4958,"model_score":0.3145,"style_score":0.1584,"combined_score":0.2521},
+ {"status":200,"guess":"human","confidence":0.5938,"model_score":0.1763,"style_score":0.2432,"combined_score":0.2031},
+ {"status":200,"guess":"human","confidence":0.9022,"model_score":0.0815,"style_score":0.0,"combined_score":0.0489},
+ {"status":200,"guess":"unsure","confidence":0.2332,"model_score":0.4232,"style_score":0.3236,"combined_score":0.3834},
+ {"status":200,"guess":"human","confidence":0.4346,"model_score":0.3567,"style_score":0.1718,"combined_score":0.2827},
+ {"status":200,"guess":"human","confidence":0.3438,"model_score":0.2715,"style_score":0.4131,"combined_score":0.3281},
+ {"status":200,"guess":"human","confidence":0.3192,"model_score":0.1467,"style_score":0.631,"combined_score":0.3404}]
 ```
 
-**Diagnoses**
+Criterion 2 (`scoring.py::combine_signals` scores):
 
-<!-- For each miss AND each broken attack: the stage and the mechanism.
+```json
+{
+ "mean_combined_clearly_AI": 0.7283,
+ "mean_combined_clearly_human": 0.2456,
+ "gap": 0.4827
+}
+```
 
-     Your service has five stages: the route, signal one, signal two, the
-     combining rule, and the label mapping.
+Criterion 3 (`scoring.py::score_to_label`):
 
-     Not a diagnosis:  "The evasion attacks got through."
-     A diagnosis:      "Four evasion inputs got through. All four had typos
-                        added to AI-generated text. My second signal measures
-                        word variety, and typos raise word variety — so it read
-                        them as more human. My combining rule weights that
-                        signal at 0.6, so it dragged the whole score down."
+```json
+{"labels_seen_across_run": ["ai", "human", "unsure"], "borderline_guesses": ["unsure", "unsure", "unsure", "unsure", "ai"], "borderline_combined": [0.559, 0.679, 0.5, 0.696, 0.763]}
+```
 
-     Look for a pattern. Five failures on one signal is one problem, not five. -->
+Criterion 4 (`app.py::appeal` plus `GET /log`):
 
+```json
+{"valid_appeals_ok": 10, "unknown_id_returns_404_and_no_log_entry": true}
+```
 
+Criterion 5 (`app.py::submit` validation; the 7th input is a non-JSON body; 413 is the 50,000-character cap):
+
+```json
+{"statuses_for_7_bad_inputs": [400, 400, 400, 400, 400, 413, 400], "rejected_entries_logged": 7, "ping_after": true}
+```
+
+**How I decided each verdict.** I applied the targets exactly as written and required them to hold in every trial. Criterion 1 needed 0 flags in all three trials: 0, 0, 0. Criterion 3 needed both conditions: all three labels appeared, and 4 of 5 borderline pieces were "unsure" against a target of 3. Criterion 4 counted an appeal only if the response said `under_review` **and** a matching `appeal` entry with the reasoning appeared in the log, and the unknown id returned 404 and wrote nothing. Criterion 5 needed every input to return 4xx with a `rejected` log entry.
+
+**An honest look at "all MET".** A clean sweep on my own criteria sits next to 22 broken attacks, and I don't think my service is that good. The criteria were too narrow, and the attack set found what they didn't:
+
+- **Criterion 1** passed because my ten pieces are casual: seven are fragments, notes or chat-style messages. The attack set's plain and formal human writing (FP02 to FP05) got labeled AI four times out of eight. My own writing is the wrong place to look for the failure, and I should have included a few plain assignment-style paragraphs. This is the one I would tighten.
+- **Criterion 5** passed because the seven inputs I listed don't include a one-character text. MF02 crashed the route with a 500 and left no log entry, and criterion 5 as written could never have caught it. That is a gap in what I chose to list, not an unmeasurable criterion, so I am not revising the wording; I would add short and non-prose inputs to the test.
+- **Criterion 2** is inflated by using my casual notes as the "clearly human" side. The 0.483 gap would shrink if the human side included plain, formal prose.
+- **Criterion 3**'s "borderline" texts were written by Claude, and one of five (0.763) was labeled AI.
+
+I did not edit `criteria.md`. The targets were not unmeasurable; they were met.
+
+**Diagnoses.** Each of the 22 broken attacks, with stage and mechanism. For the evasion cases I also scored the unedited paragraph the attack set is built on, with my own functions (not through the service): **model 0.754, style 0.250, combined 0.552, which is "unsure" before any edit.**
+
+| Attacks | Stage | Mechanism |
+|---|---|---|
+| EV01, EV05 | Signal one | Typos and a heavy editing pass add rare, odd tokens, which GPT-2 finds unpredictable, so perplexity rises and `model_score` collapses (0.754 to 0.164 and 0.321). The style signal barely moved on EV01 (0.589). |
+| EV02, EV03, EV04, EV06, EV07, EV09 | Signal two and the combining rule | These land at 0.44 to 0.59, within about 0.1 of the **unedited** 0.552, so the edits did little. The paragraph was already not caught: its long, varied sentences give `style_score` 0.25, which reads as human, and my rule treats any style score under 0.5 as a veto on an AI verdict (the cap in `scoring.py::combine_signals`) while weighting style 0.4. The style signal's wrong assumption (varied sentence length means human) is the cause. |
+| EV08 | Signal one | A ten-word text is below the signal's useful size; GPT-2's perplexity on so few tokens is noise (0.245). |
+| PI01, PI02, PI03 | Signal one and signal two | Nothing in my pipeline reads instructions, so these were not obeyed. The injected lines ("Ignore all previous instructions.", "SYSTEM: ...") are short, abrupt sentences and odd tokens in front of the paragraph. They change its shape (sentence length spread) and raise perplexity, moving combined from 0.552 to 0.39, 0.22 and 0.53. It looks like injection working, but the mechanism is only text statistics. |
+| FP02, FP03, FP04, FP05 | Signal one, then the combining rule and the threshold | Plain, formal, careful or technical writing is highly predictable, so `model_score` is 0.74 to 0.83. The style signal agrees (0.57 to 0.77) because those texts have even sentences, so both signals lean AI and my "both must agree" cap, built for disagreement, does nothing. Combined 0.718 to 0.788 clears the 0.70 AI threshold. |
+| MF02 | Route | `detector.py` raises `ValueError("Text is too short to score")` and `app.py::submit` has no input check or try/except for it, so it surfaces as a 500, and the crash happens before `audit.log_decision`, so the log has no entry for it. |
+| MF03, MF04 | Route (no input validation), signal one | Control characters and punctuation-only text are not prose. Signal one returns about 0.0 on them (junk is unpredictable), signal two returns its neutral 0.5 for "nothing to measure", and combined 0.20 becomes "human". |
+| MF05, MF06, MF07 | Route (no input validation), signal one, combining rule | A long single word, emoji and right-to-left text give signal one 0.91 to 0.998 (very repetitive or byte-level tokens), while signal two says a neutral 0.5. The neutral 0.5 still gets 40% weight and is not treated as "I can't tell", so combined is 0.74 to 0.80 and clears the AI threshold. It also labels a real right-to-left writer "AI", which is the worst version of this. |
+
+**Patterns.** Four underlying problems, not 22:
+1. **Signal one over-reads predictability.** Plain human text and junk repeats both look machine-written to it (FP02 to FP05, MF05 to MF07), and token-level noise makes AI text look human (EV01, EV05, EV08).
+2. **Signal two is weak and I made it a veto.** It scores an ordinary AI paragraph 0.25, and my combining rule lets it block an AI verdict on its own. It also returns 0.5 for "can't measure", which the rule counts as an opinion.
+3. **No input validation in the route** (MF02 to MF07: six attacks, including the only crash).
+4. **The 0.70 threshold is crossed by plain human writing** (0.72 to 0.79) while real AI text sits only slightly higher (0.69 to 0.79 in my own AI set), so no threshold separates them well.
+
+The safeguard did work once: FP06 and FP07 (model 0.88, style 0.496) would have averaged 0.727, but the "both must agree" cap held them to 0.69, "unsure". The false positive for FP02 to FP05 is the case the cap can't catch.
 
 ---
 

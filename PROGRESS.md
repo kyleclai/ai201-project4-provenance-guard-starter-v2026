@@ -38,8 +38,8 @@ Running log of the build. Updated as each step completes.
 
 - [x] M1: rate limit on (6/min, 100/day), flood test, audit log has 9 fields + rejections
 - [x] M2: run the attack set (before), mark held/broke, 10 log entries, worst outcome
-- [ ] M3: scenarios.py + `run_eval.py --label before` (5 criteria x 3 trials)
-- [ ] M4: verdicts + stage/mechanism diagnoses
+- [x] M3: scenarios.py + `run_eval.py --label before` (5 criteria x 3 trials)
+- [x] M4: verdicts + stage/mechanism diagnoses
 - [ ] M5: ONE improvement, re-run attacks + eval (`--label after`)
 - [ ] M6: README sections (Rate Limiting, Attack Before, Run Log, Improvement, Still Broken), How I Used AI, push
 
@@ -49,3 +49,5 @@ Running log of the build. Updated as each step completes.
 - 2026-11-15 — M1: enabled limiting in `config.py` (default on), 6/min + 100/day, uncommented `@limiter.limit` on `/submit`.
 - 2026-11-15 — M1 verified: `--flood 15` gave `200 x6, 429 x9`; `/health` shows `rate_limiting: true`; rejections logged with reason + limit. README Rate Limiting section written. Decision entries already carry all nine fields; own-route 400s were already logged via `audit.log_rejection` in unit 7.
 - 2026-11-15 — M2: attack set unpacked at `attack_set/`; ran it BEFORE any fix (`--label before`). 56 attacks: 22 BROKE / 34 HELD. Biggest clusters: evasion 9/10 not flagged, 4/8 false positives called AI (FP02-05), MF02 single char = 500 crash with no log entry, junk text (MF03-07) given confident verdicts. Worst outcome: FP03 (non-native speaker, 0.718 'ai'). Verdicts written into the results file; 10 log entries + definitions of held/broke in README. Diagnosis deferred to M4.
+- 2026-11-16 — M3: wrote `scenarios.py` (your 10 pieces, names/city redacted for the public repo; 5 AI + 5 borderline written by Claude; bad-input bodies), `check_criteria.py` (criteria 4+5 live), small harness tweak in `run_eval.py` (records combined_score, JSON copy). `run_eval --label before` + `check_criteria --label before`: all 5 criteria MET, 3 identical trials.
+- 2026-11-16 — M4: verdicts all MET, but criteria were too narrow (my pieces are casual; criterion 5 omitted a 1-char input). Diagnosed all 22 broken attacks into 4 patterns: signal one over-reads predictability; signal two weak + used as a veto; no input validation; threshold 0.70 crossed by plain human text. Key finding: the unedited AI paragraph already scores 0.552 (unsure), so most 'evasions' were pre-existing misses. criteria.md NOT edited.
