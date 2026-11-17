@@ -57,5 +57,6 @@ Running log of the build. Updated as each step completes.
 ## Still needs you (unit 8)
 
 - Read README Unit 8 sections; check you agree with the held/broke rules and the 'all MET but too narrow' framing.
-- Replace/delete the HTML comment at the end of How I Used AI Moment 4 with anything you actually did or decided.
+- (done) Moment 4 rewritten about choosing your 10 pieces. Please confirm you wrote piece 7 (it was flagged as template-shaped).
 - Resubmit the SAME repo URL in the Course Portal.
+- 2026-11-16 — Rewrote How I Used AI Moment 4 (piece selection, your journaling, separate vault session); improvement choice is now Moment 5.
