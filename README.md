@@ -171,6 +171,20 @@ I used Claude Code for most of the build. I pasted in the whole unit brief and a
 - *What I changed:* I didn't tune the thresholds or soften my 0-of-10 target to make that paragraph pass. With two samples I'd only be fitting the test, and the criteria are meant to be set before the results. I recorded both failures in the README as findings, and left the false positive as the first thing to diagnose in unit 8. The one change I did make was a design choice: I raised the AI threshold from the starter's 0.65 to 0.70, to lean toward fewer wrong accusations.
 
 
+**Unit 8: using AI to run and diagnose the tests**
+
+**Moment 3: the attack run and the diagnosis**
+
+- *What I asked for:* Claude Code to run the staff attack set against my service before changing anything, mark each attack held or broke, and diagnose every failure.
+- *What came back:* 22 broken of 56, with a held/broke table I could read. The useful part came when it did not take the evasion attacks at face value: it scored the **unedited** AI paragraph behind them with my own functions and found it already scored 0.552, "unsure", before any edit. That turned several "evasions" into pre-existing misses of signal two and my combining rule, instead of attacks that had worked.
+- *What I changed:* the diagnosis. I stopped blaming the edits for six of the nine evasions and put the cause on signal two, which I had weighted 0.4 and given veto power in `combine_signals`. Claude Code wrote the held/broke rules and I should say plainly that they are its judgment calls (for example, "unsure" counts as BROKE for AI text but HELD for human text). They are written at the top of the Attack Run section so they can be argued with.
+
+**Moment 4: choosing the one improvement**
+
+- *What I asked for:* the single change that best followed from the diagnoses.
+- *What came back:* two candidates with numbers. Moving the AI threshold from 0.70 to 0.80 clears the four false positives, but my five AI texts score 0.69 to 0.79, so all would become "unsure". Validating input in the route fixes the only crash and five junk-input verdicts with no new misses. It recommended the second.
+- *What I changed:* I went with input validation. It does not touch the false accusations I care most about, and I wrote that into What's Still Broken rather than claiming the fix was bigger than it is. Separately, my own writing went into `scenarios.py` with my name and city replaced, because the file is committed to a public repo; and the all-MET result on my own criteria is reported as too narrow, not as success. <!-- Add anything you actually did or decided this unit that isn't here. -->
+
 **Beyond the AI: what I took from talking it through with my group**
 
 Separately from Claude Code, I talked this unit over with my group in a side chat. We got into how writing acceptance criteria before building is the same move as pinning down functional and non-functional requirements in a normal software product phase, and how odd it is to be doing that for an AI system. We also noticed how many businesses and industries don't know exactly what they want an AI engineer to do. There are overarching ideas, but nothing like the software-engineering setup where a project gets split into tasks and everyone knows their sprint's work. In AI engineering you're the engineer, the PM and the consultant/client at the same time: you find the high-value areas and designs, the exact specs usually aren't defined for you, and because the field is so new you often work out the process yourself, weigh several solutions, and then get people on board. That conversation shaped how I treated this project. Setting my own targets (0 of 10 false positives, spread of at least 0.30) was practice at defining "working" when nobody hands you the definition. This part is my own thinking, not something Claude Code produced.
@@ -400,38 +414,112 @@ The safeguard did work once: FP06 and FP07 (model 0.88, style 0.496) would have 
 
 ## The Improvement
 
-**What I changed:**
+**What I changed:** one thing, validating input in the route (`app.py::submit`, setting `MIN_WORDS = 5` in `config.py`). Text with fewer than 5 words in the Latin alphabet is refused with `400 text_too_short` and a `rejected` log entry, before either signal sees it. Nothing else changed: no weights, thresholds, labels or signals.
 
-**Which diagnosis pointed at it:**
+**Which diagnosis pointed at it:** pattern 3, no input validation in the route. MF02 crashed `detector.py` with a `ValueError` and a 500 (with no log entry), and MF03 to MF07 got confident labels on text that isn't prose (control characters, punctuation, one long word, emoji, right-to-left script), because both signals returned something and neither was told to refuse. All six had one cause, in the route, so one fix at the route could be measured cleanly. I picked it over a threshold move because I checked the alternative first and rejected it: moving the AI threshold from 0.70 to 0.80 would clear the four false positives, but my own five "clearly AI" texts score 0.69 to 0.79, so all five would become "unsure" and the service would stop detecting anything.
 
-### Attack Run — After
+### Attack Run: After
 
-<!-- Same format. `run_attacks.py --label after` -->
+`python run_attacks.py --set attack_set --label after` (`results/attack_run_2026-11-16_2110_after.md`), marked with the same rules as before. **56 attacks: 16 BROKE, 40 HELD (before: 22 / 34).**
 
+| ID | Family | Status | Guess | model | style | combined | Verdict |
+|---|---|---|---|---|---|---|---|
+| EV01 | evasion | 200 | human | 0.164 | 0.589 | 0.334 | **BROKE** |
+| EV02 | evasion | 200 | unsure | 0.594 | 0.208 | 0.440 | **BROKE** |
+| EV03 | evasion | 200 | unsure | 0.666 | 0.277 | 0.510 | **BROKE** |
+| EV04 | evasion | 200 | unsure | 0.611 | 0.566 | 0.593 | **BROKE** |
+| EV05 | evasion | 200 | human | 0.321 | 0.190 | 0.269 | **BROKE** |
+| EV06 | evasion | 200 | unsure | 0.573 | 0.283 | 0.457 | **BROKE** |
+| EV07 | evasion | 200 | unsure | 0.586 | 0.303 | 0.473 | **BROKE** |
+| EV08 | evasion | 200 | unsure | 0.245 | 0.548 | 0.366 | **BROKE** |
+| EV09 | evasion | 200 | unsure | 0.704 | 0.361 | 0.567 | **BROKE** |
+| EV10 | evasion | 200 | ai | 0.979 | 0.719 | 0.875 | **HELD** |
+| FP01 | false_positive | 200 | unsure | 0.618 | 0.501 | 0.571 | **HELD** |
+| FP02 | false_positive | 200 | ai | 0.739 | 0.695 | 0.721 | **BROKE** |
+| FP03 | false_positive | 200 | ai | 0.805 | 0.586 | 0.718 | **BROKE** |
+| FP04 | false_positive | 200 | ai | 0.833 | 0.571 | 0.728 | **BROKE** |
+| FP05 | false_positive | 200 | ai | 0.800 | 0.769 | 0.788 | **BROKE** |
+| FP06 | false_positive | 200 | unsure | 0.881 | 0.496 | 0.690 | **HELD** |
+| FP07 | false_positive | 200 | unsure | 0.882 | 0.495 | 0.690 | **HELD** |
+| FP08 | false_positive | 200 | unsure | 0.322 | 0.441 | 0.370 | **HELD** |
+| PI01 | prompt_injection | 200 | unsure | 0.463 | 0.277 | 0.388 | **BROKE** |
+| PI02 | prompt_injection | 200 | human | 0.204 | 0.241 | 0.219 | **BROKE** |
+| PI03 | prompt_injection | 200 | unsure | 0.594 | 0.424 | 0.526 | **BROKE** |
+| PI04 | prompt_injection | 200 | unsure | 0.500 | 0.389 | 0.456 | **HELD** |
+| PI05 | prompt_injection | 200 | unsure | 0.640 | 0.163 | 0.449 | **HELD** |
+| PI06 | prompt_injection | 200 | unsure | 0.558 | 0.506 | 0.537 | **HELD** |
+| MF01 | malformed | 400 | — | — | — | — | **HELD** |
+| MF02 | malformed | 400 | — | — | — | — | **HELD** |
+| MF03 | malformed | 400 | — | — | — | — | **HELD** |
+| MF04 | malformed | 400 | — | — | — | — | **HELD** |
+| MF05 | malformed | 400 | — | — | — | — | **HELD** |
+| MF06 | malformed | 400 | — | — | — | — | **HELD** |
+| MF07 | malformed | 400 | — | — | — | — | **HELD** |
+| MF08 | malformed | 413 | — | — | — | — | **HELD** |
+| RQ01 | malformed | 400 | — | — | — | — | **HELD** |
+| RQ02 | malformed | 400 | — | — | — | — | **HELD** |
+| RQ03 | malformed | 400 | — | — | — | — | **HELD** |
+| RQ04 | malformed | 400 | — | — | — | — | **HELD** |
+| RQ05 | malformed | 400 | — | — | — | — | **HELD** |
+| RQ06 | malformed | 400 | — | — | — | — | **HELD** |
+| RQ07 | malformed | 400 | — | — | — | — | **HELD** |
+| RQ08 | malformed | 400 | — | — | — | — | **HELD** |
+| RQ09 | malformed | 400 | — | — | — | — | **HELD** |
+| RQ10 | malformed | 400 | — | — | — | — | **HELD** |
+| RQ11 | malformed | 429 | — | — | — | — | **HELD** |
+| RQ12 | malformed | 400 | — | — | — | — | **HELD** |
+| FL01_01 | flood_same_creator | 200 | human | — | — | — | **HELD** |
+| FL01_02 | flood_same_creator | 200 | human | — | — | — | **HELD** |
+| FL01_03 | flood_same_creator | 200 | human | — | — | — | **HELD** |
+| FL01_04 | flood_same_creator | 200 | human | — | — | — | **HELD** |
+| FL01_05 | flood_same_creator | 200 | human | — | — | — | **HELD** |
+| FL01_06 | flood_same_creator | 200 | human | — | — | — | **HELD** |
+| FL01_07 | flood_same_creator | 429 | — | — | — | — | **HELD** |
+| FL01_08 | flood_same_creator | 429 | — | — | — | — | **HELD** |
+| FL01_09 | flood_same_creator | 429 | — | — | — | — | **HELD** |
+| FL01_10 | flood_same_creator | 429 | — | — | — | — | **HELD** |
+| FL01_11 | flood_same_creator | 429 | — | — | — | — | **HELD** |
+| FL01_12 | flood_same_creator | 429 | — | — | — | — | **HELD** |
 
+Exactly six rows changed and nothing else moved, which is what makes the comparison clean:
 
-**Did it help, and how do I know:**
+| Attack | Before (status / guess) | After |
+|---|---|---|
+| MF02 | 500 / — (BROKE) | 400 / text_too_short (HELD) |
+| MF03 | 200 / human (BROKE) | 400 / text_too_short (HELD) |
+| MF04 | 200 / human (BROKE) | 400 / text_too_short (HELD) |
+| MF05 | 200 / ai (BROKE) | 400 / text_too_short (HELD) |
+| MF06 | 200 / ai (BROKE) | 400 / text_too_short (HELD) |
+| MF07 | 200 / ai (BROKE) | 400 / text_too_short (HELD) |
 
-<!-- Widening the unsure band usually fixes one problem and creates another.
-     Reporting that trade honestly is worth full credit. -->
+Side by side: broken attacks **22 to 16**. Evasion 9 broke before and after; false positives 4 before and after; prompt injection 3 before and after; malformed text 6 broke before, 0 after. The five criteria ran again with `--label after` (`results/run_2026-11-16_2111_after.md`, `results/criteria_after.md`) and came out the same as before (all MET, 0/10, gap 0.483, 4/5 borderline unsure, 10/10 appeals, 7/7 bad inputs), because none of them tests what changed.
 
+Three of the new rejection entries from the run:
 
+```json
+{"creator_id": "attacker_MF02", "event": "rejected", "reason": "text_too_short", "status": "rejected", "timestamp": "2026-11-17T05:10:41+00:00"}
+{"creator_id": "attacker_MF03", "event": "rejected", "reason": "text_too_short", "status": "rejected", "timestamp": "2026-11-17T05:10:41+00:00"}
+{"creator_id": "attacker_MF04", "event": "rejected", "reason": "text_too_short", "status": "rejected", "timestamp": "2026-11-17T05:10:41+00:00"}
+```
+
+**Did it help, and how do I know:** yes for the thing it targeted. The only crash is gone and five junk inputs no longer get a confident verdict, and the 22-to-16 count is the same set of attacks with the same marking rules. It did not touch the harm I care most about: the four false accusations (FP02 to FP05) and the evasion misses are unchanged.
+
+**What it costs:** an honest trade. Any text that isn't mostly Latin-alphabet words now gets a 400, so a writer using Arabic, Hebrew, Chinese or another script gets "we can only check English text" instead of a verdict. That is better than being labeled "AI" on a language the signals can't read (MF07 was), but it is a real limit on who the service can serve. Real text shorter than 5 words is also refused.
 
 ---
 
 ## What's Still Broken
 
-<!-- For each attack still getting through and each criterion still missed:
-     what you'd do, and why you stopped. -->
+| Still broken | What I'd do | Why I stopped |
+|---|---|---|
+| EV01, EV05 (typos / heavy editing move signal one) | Make signal one less sensitive to token-level noise, e.g. score on a cleaned-up copy of the text or use a bigger model than GPT-2 | Needs a new signal design; one change per unit. |
+| EV02, EV03, EV04, EV06, EV07, EV09 and PI01 to PI03 (AI text not flagged, even unedited) | Rework the style signal (it scores an ordinary AI paragraph 0.25) and stop treating it as a veto in `combine_signals` | Out of scope after the validation fix. The edits aren't the root cause here, the base paragraph already scores "unsure". |
+| EV08 (ten-word text, noisy perplexity) | Require a larger minimum length for a verdict, say 40 words, and answer "unsure" below it | A bigger version of the same validation idea. Would also reject FP08-style short human posts. |
+| FP02, FP03, FP04, FP05 (plain, formal, non-native or technical human writing labeled AI) | Add a signal that doesn't equate predictable with AI, and test more human writing of this kind | The one I care about most, and it has no single-knob fix. Threshold to 0.80 costs all detection on my own AI set. |
 
+**The trade I'd make if this ran for real:** I'd keep leaning toward fewer wrong accusations, because a false "AI" label lands on a person whose work is theirs, and I'd route every high-confidence AI label through a human review rather than showing it as a verdict. The cost is more AI text going through unflagged (nine of ten evasions, and two of my five AI-written texts, are not labeled "ai"), and the people who pay for that are the readers and honest writers who lose the benefit of a working check.
 
-
-**The trade I'd make if this ran for real:**
-
-<!-- Two sentences. Fewer wrong accusations means more AI text getting through.
-     Say which way you'd go and WHO PAYS FOR IT. -->
-
-
+---
 
 <!-- ═════════════════════════════════════════════════════════════════════
 

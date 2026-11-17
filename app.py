@@ -228,6 +228,13 @@ def submit():
     import scoring
     import stylometry
 
+    # Unit 8 improvement: refuse input that isn't prose before any signal sees
+    # it. Too few words (or none in the Latin alphabet, which is all the signals
+    # can read) crashed the detector or got a confident verdict on junk.
+    if len(stylometry.words(text)) < config.MIN_WORDS:
+        return reject(400, "text_too_short",
+                      f"We can only check English text of at least {config.MIN_WORDS} words.")
+
     content_id = str(uuid.uuid4())
     model_score = round(detector.model_signal(text), 4)
     style_score = round(stylometry.style_signal(text), 4)

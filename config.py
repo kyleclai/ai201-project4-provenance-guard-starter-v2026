@@ -111,3 +111,6 @@ RESULTS_DIR = ROOT / "results"
 
 # Longest text /submit accepts, in characters. Beyond this: 413.
 MAX_TEXT_CHARS = 50_000
+
+# Fewest words (Latin letters/digits) /submit will score. Below this: 400.
+MIN_WORDS = 5
